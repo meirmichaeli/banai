@@ -20,7 +20,9 @@
 
 .btn--tonal { border-color: transparent; background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
 .btn--tonal:hover:not(:disabled) { background: #f5cfc0; }
-.btn .icon { margin-right: 4px; }
+.btn .icon { margin-inline-end: 4px; }
+/* Arrows point the way the text reads. */
+[dir="rtl"] .entry-card .btn .icon { transform: scaleX(-1); }
 
 .chip {
   display: inline-block;
@@ -185,7 +187,7 @@
 .logo:hover .logo__mark { transform: rotate(-6deg) scale(1.06); }
 .logo__word { font: 800 26px/1 var(--md-ref-typeface-display); letter-spacing: -0.045em; color: var(--md-sys-color-on-surface); }
 .logo__ai { background: linear-gradient(135deg, #e9814d, #b4532a 55%, #8f3a17); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.logo__tagline { padding-left: 10px; border-left: 1px solid var(--md-sys-color-outline-variant); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-large); letter-spacing: 0.01em; }
+.logo__tagline { padding-inline-start: 10px; border-inline-start: 1px solid var(--md-sys-color-outline-variant); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-large); letter-spacing: 0.01em; }
 
 /* Interaction: ripple, press, hover */
 .btn, .icon-btn, .segmented__option, .swatch { position: relative; overflow: hidden; }
@@ -261,3 +263,41 @@
 /* The pinned "design ready" note in the chat, with Generate Style Profile. */
 .chat__built-body { display: flex; flex-direction: column; gap: var(--space-2); }
 .chat__built .button-row { margin-top: 0; }
+
+/* Tooltips (ui/tooltip.js): one shared, manual popover, so it also draws above modal dialogs. */
+.tooltip {
+  position: fixed;
+  inset: auto;
+  max-width: 260px;
+  margin: 0;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--md-sys-shape-small);
+  background: #2f2622;
+  color: #fff8f6;
+  box-shadow: var(--md-sys-elevation-3);
+  font: var(--md-sys-typescale-body-small);
+  text-align: start;
+  overflow: visible;
+}
+.tooltip[hidden] { display: none; }
+.tooltip-host { display: inline-flex; }
+/* 3D view help: a focusable info mark in the viewer's top corner (its text is the tooltip). */
+.viewer__help {
+  position: absolute;
+  top: var(--space-3);
+  inset-inline-start: var(--space-3);
+  z-index: 2;
+  display: inline-flex;
+  padding: 6px;
+  border-radius: var(--md-sys-shape-full);
+  background: var(--md-sys-color-surface-container-lowest);
+  color: var(--md-sys-color-on-surface-variant);
+  box-shadow: var(--md-sys-elevation-1);
+  cursor: help;
+}
+.viewer__help:focus-visible, .topbar__units:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.start__bar { justify-content: space-between; gap: var(--space-3); }
+/* Text with a tooltip (headings, labels): only the words react, and the cursor shows there is help. */
+.prop-section__title[data-tooltip], .appearance__label[data-tooltip], .field__label[data-tooltip],
+.panel__title[data-tooltip], .chat__title[data-tooltip], .entry-card__title[data-tooltip] { width: fit-content; cursor: help; }

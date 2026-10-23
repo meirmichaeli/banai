@@ -5,28 +5,12 @@
 import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { MAX_MESSAGE_LENGTH } from './chatModel.js';
-import { createLanguage, detectLanguage, LANGUAGES, STRINGS, stringsFor } from './i18n.js';
+import { createLanguage, detectLanguage, STRINGS, stringsFor } from './i18n.js';
 import { renderProposalCard } from './proposalCard.js';
 import { canRecord, createSpeaker, readAloudPreference, startRecording } from './voice.js';
 import { transcribe } from '../api/client.js';
-
-const LANGUAGE_NAMES = Object.freeze({ he: 'עב', en: 'EN' });
-
-function languageSwitch(language, t) {
-  const group = el('div', { className: 'lang-switch', attrs: { role: 'group', 'aria-label': t.switchLabel } });
-  group.dataset.testid = 'chat-language';
-  LANGUAGES.forEach((code) => {
-    const option = el('button', {
-      className: 'lang-switch__option',
-      text: LANGUAGE_NAMES[code],
-      attrs: { type: 'button', lang: code, 'aria-pressed': String(code === language.get()), title: code === 'he' ? 'עברית' : 'English' },
-    });
-    option.dataset.testid = `chat-language-${code}`;
-    option.addEventListener('click', () => language.set(code));
-    group.append(option);
-  });
-  return group;
-}
+import { languageSwitch } from '../ui/languageSwitch.js';
+import { withTooltip } from '../ui/tooltip.js';
 
 /** onExport() opens the carpenter PDF dialog (Generate Style Profile); without it no note is shown. */
 export function mountChat(container, {
@@ -49,6 +33,7 @@ export function mountChat(container, {
     mic.classList.toggle('chat__mic--recording', recording);
     mic.setAttribute('aria-pressed', String(recording));
     mic.setAttribute('aria-label', recording ? t.micStop : t.mic);
+    mic.dataset.tooltip = recording ? t.tips.micStop : t.tips.mic;
     mic.replaceChildren(icon(recording ? 'stop' : 'mic'));
     mic.disabled = voice.status === 'transcribing' || (!recording && model.isBusy());
   };
@@ -90,8 +75,9 @@ export function mountChat(container, {
   function readAloudToggle(t) {
     const button = el('button', {
       className: 'icon-btn chat__read-aloud',
-      attrs: { type: 'button', 'aria-pressed': String(readAloud.get()), 'aria-label': t.readAloud, title: t.readAloud },
+      attrs: { type: 'button', 'aria-pressed': String(readAloud.get()), 'aria-label': t.readAloud },
     }, [icon('volume', { size: 18 })]);
+    withTooltip(button, t.tips.readAloud);
     button.dataset.testid = 'chat-read-aloud';
     button.addEventListener('click', () => {
       readAloud.set(!readAloud.get());
@@ -108,6 +94,7 @@ export function mountChat(container, {
     const s = stringsFor(code);
     const profile = el('button', { className: 'btn btn--primary', text: s.generateProfile, attrs: { type: 'button' } });
     profile.dataset.testid = 'chat-export';
+    withTooltip(profile, s.tips.profile);
     profile.addEventListener('click', () => onExport());
     const note = el('div', { className: 'chat__bubble chat__bubble--system chat__built', attrs: { dir: s.dir, lang: code } }, [
       icon('check', { size: 16 }),
@@ -128,20 +115,22 @@ export function mountChat(container, {
     const header = el('header', { className: 'chat__header' }, [
       el('span', { className: 'chat__avatar' }, [icon('sparkle', { size: 22 })]),
       el('div', { className: 'chat__heading' }, [
-        el('h2', { className: 'chat__title', text: t.title }),
+        withTooltip(el('h2', { className: 'chat__title', text: t.title }), t.tips.title),
         el('p', { className: 'chat__subtitle', text: t.subtitle }),
       ]),
       model.isConnected()
-        ? el('span', { className: 'chat__status chat__status--online', text: t.online, attrs: { title: t.onlineTitle } })
-        : el('span', { className: 'chat__status', text: t.comingSoon, attrs: { title: t.comingSoonTitle } }),
+        ? el('span', { className: 'chat__status chat__status--online', text: t.online, attrs: { 'data-tooltip': t.onlineTitle } })
+        : el('span', { className: 'chat__status', text: t.comingSoon, attrs: { 'data-tooltip': t.comingSoonTitle } }),
     ]);
 
     const input = el('textarea', { className: 'chat__input', attrs: { rows: '2', maxlength: String(MAX_MESSAGE_LENGTH), placeholder: (hintKey && t.composerHints[hintKey]) || t.placeholder, dir: 'auto', 'aria-label': t.inputLabel } });
     input.dataset.testid = 'chat-input';
+    withTooltip(input, t.tips.input);
     input.value = draft;
     input.addEventListener('input', () => { draft = input.value; });
     const sendButton = el('button', { className: 'icon-btn icon-btn--filled chat__send', attrs: { type: 'submit', 'aria-label': t.send } }, [icon('send')]);
     sendButton.dataset.testid = 'chat-send';
+    withTooltip(sendButton, t.tips.send);
     const voiceReady = model.isConnected() && canRecord();
     const mic = voiceReady ? el('button', { className: 'icon-btn chat__mic', attrs: { type: 'button' } }) : null;
     if (mic) {
@@ -155,6 +144,7 @@ export function mountChat(container, {
     const chips = t.suggestions.map((text) => {
       const chip = el('button', { className: 'suggestion', attrs: { type: 'button' } }, [icon('sparkle', { size: 16 }), el('span', { text })]);
       chip.dataset.testid = 'suggestion';
+      withTooltip(chip, t.tips.suggestion);
       chip.addEventListener('click', () => {
         input.value = text; // only fills the composer: nothing is sent until the customer presses send
         draft = text;
@@ -207,7 +197,8 @@ export function mountChat(container, {
       }
     });
 
-    const controls = model.isConnected() ? [readAloudToggle(t), languageSwitch(language, t)] : [languageSwitch(language, t)];
+    const switcher = languageSwitch(language, { label: t.switchLabel, tooltip: t.tips.language });
+    const controls = model.isConnected() ? [readAloudToggle(t), switcher] : [switcher];
     const footerRow = el('div', { className: 'chat__footer-row' }, [hint, el('div', { className: 'chat__footer-controls' }, controls)]);
     container.replaceChildren(header, el('div', { className: 'chat__body' }, [welcome, list, builtSlot, proposalSlot]), el('div', { className: 'chat__footer' }, [composer, footerRow]));
     view = { t, input, sendButton, composer, welcome, list, proposalSlot, typing, submit, hint, mic, renderedCount: 0, renderedProposalKey: null, builtSlot, renderedBuiltKey: null };

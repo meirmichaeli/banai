@@ -33,14 +33,18 @@
   font-variant-numeric: tabular-nums;
 }
 .field__input:hover { border-color: var(--md-sys-color-on-surface); }
-input.field__input[inputmode] { text-align: right; }
-/* Dropdowns: a custom chevron with room on the right, so text never runs under it. */
+/* Numbers read left to right in both languages; tighter padding keeps "240.0" whole beside "ס״מ". */
+input.field__input[inputmode] { direction: ltr; padding: 0 var(--space-2); text-align: right; }
+/* Dropdowns: a custom chevron with room at the end, so text never runs under it. */
 select.field__input {
   appearance: none;
-  padding-right: 44px;
+  padding-inline-end: 44px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%2353433e' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
+}
+[dir="rtl"] select.field__input {
+  background-position: left 12px center;
   text-overflow: ellipsis;
   cursor: pointer;
 }
@@ -51,7 +55,7 @@ select.field__input {
 .toggle input:focus-visible,
 .custom-colour summary:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
 .field__input[aria-invalid="true"] { border-color: var(--md-sys-color-error); box-shadow: 0 0 0 1px var(--md-sys-color-error); }
-.field__suffix { color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-medium); }
+.field__suffix { flex: none; white-space: nowrap; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-medium); }
 .field__message { margin: var(--space-1) 0 0; color: var(--md-sys-color-error); font: var(--md-sys-typescale-body-small); }
 .field__message:empty { display: none; }
 
@@ -64,13 +68,13 @@ select.field__input {
   min-height: 40px;
   padding: 0 var(--space-4);
   border: 0;
-  border-right: 1px solid var(--md-sys-color-outline);
+  border-inline-end: 1px solid var(--md-sys-color-outline);
   background: transparent;
   color: var(--md-sys-color-on-surface);
   font: var(--md-sys-typescale-label-large);
   cursor: pointer;
 }
-.segmented__option:last-child { border-right: 0; }
+.segmented__option:last-child { border-inline-end: 0; }
 .segmented__option:hover { background: rgba(35, 25, 23, 0.08); }
 .segmented__option[aria-pressed="true"] { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
 .segmented__option[aria-pressed="true"]::before { content: '\2713\00a0'; }
@@ -94,7 +98,7 @@ select.field__input {
 .btn--ghost { border-color: transparent; background: transparent; color: var(--md-sys-color-primary); }
 .btn--danger { border-color: transparent; background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
 .btn--danger:hover:not(:disabled) { background: #ffc9c2; }
-.btn--link { height: auto; padding: 0; border: 0; border-radius: 0; background: none; color: var(--md-sys-color-on-surface); font-weight: 500; text-align: left; white-space: nowrap; }
+.btn--link { height: auto; padding: 0; border: 0; border-radius: 0; background: none; color: var(--md-sys-color-on-surface); font-weight: 500; text-align: start; white-space: nowrap; }
 .btn--link:hover:not(:disabled) { background: none; text-decoration: underline; }
 .button-row { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
 /* Two actions side by side in the narrow properties panel (never wraps). */

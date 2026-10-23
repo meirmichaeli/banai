@@ -1,6 +1,8 @@
 // Small DOM builders for the properties panel. Text is always set via textContent or
 // input.value, never innerHTML, so design data (e.g. custom names) cannot inject markup.
 import { friendlyError, parseCm, toCmText } from './opsFromForm.js';
+import { t } from '../i18n/app.js';
+import { withTooltip } from '../ui/tooltip.js';
 
 let fieldCounter = 0;
 const nextId = (prefix) => `${prefix}-${(fieldCounter += 1)}`;
@@ -14,16 +16,21 @@ export function el(tag, { className, text, attrs = {} } = {}, children = []) {
   return node;
 }
 
-export function section(title, children) {
-  return el('section', { className: 'prop-section' }, [el('h3', { className: 'prop-section__title', text: title }), ...children]);
+export function section(title, children, tooltip) {
+  const heading = withTooltip(el('h3', { className: 'prop-section__title', text: title }), tooltip);
+  return el('section', { className: 'prop-section' }, [heading, ...children]);
 }
 
+// A label shows the same tooltip as its control, so hovering either explains the field.
+const label = (tag, text, tooltip, attrs = {}) => withTooltip(el(tag, { className: 'field__label', text, attrs }), tooltip);
+
 /** A labelled input + inline message. `commit(rawText)` returns { ok, error?, message? }. */
-function inputField({ label, value, testId, suffix, commit, inputMode = 'decimal' }) {
+function inputField({ label: text, value, testId, suffix, commit, tooltip, inputMode = 'decimal' }) {
   const id = nextId('field');
   const input = el('input', { className: 'field__input', attrs: { id, type: 'text', inputmode: inputMode, autocomplete: 'off' } });
   input.value = value;
   if (testId) input.dataset.testid = testId;
+  withTooltip(input, tooltip);
   const message = el('p', { className: 'field__message', attrs: { id: `${id}-message`, role: 'alert' } });
   input.setAttribute('aria-describedby', message.id);
   const showError = (text) => {
@@ -47,13 +54,13 @@ function inputField({ label, value, testId, suffix, commit, inputMode = 'decimal
     if (event.key === 'Enter') apply();
   });
   const control = el('div', { className: 'field__control' }, [input, ...(suffix ? [el('span', { className: 'field__suffix', text: suffix })] : [])]);
-  return el('div', { className: 'field' }, [el('label', { className: 'field__label', text: label, attrs: { for: id } }), control, message]);
+  return el('div', { className: 'field' }, [label('label', text, tooltip, { for: id }), control, message]);
 }
 
 /** A centimetre field backed by an integer-millimetre value. `onCommit(mm)` dispatches. */
-export function cmField({ label, mm, testId, onCommit }) {
+export function cmField({ label, mm, testId, onCommit, tooltip }) {
   return inputField({
-    label, testId, suffix: 'cm', value: toCmText(mm),
+    label, testId, tooltip, suffix: t().cm, value: toCmText(mm),
     commit: (text) => {
       const parsed = parseCm(text);
       return parsed.ok ? onCommit(parsed.mm) : parsed;
@@ -62,27 +69,29 @@ export function cmField({ label, mm, testId, onCommit }) {
 }
 
 /** A whole-number field (counts). */
-export function countField({ label, value, testId, onCommit }) {
+export function countField({ label, value, testId, onCommit, tooltip }) {
   return inputField({
-    label, testId, value: String(value), inputMode: 'numeric',
-    commit: (text) => (/^\d{1,2}$/.test(text.trim()) ? onCommit(Number(text.trim())) : { ok: false, message: 'Enter a whole number' }),
+    label, testId, tooltip, value: String(value), inputMode: 'numeric',
+    commit: (text) => (/^\d{1,2}$/.test(text.trim()) ? onCommit(Number(text.trim())) : { ok: false, message: t().formErrors.wholeNumber }),
   });
 }
 
-export function segmented({ label, options, value, onChange, testId }) {
-  const group = el('div', { className: 'segmented', attrs: { role: 'group', 'aria-label': label } });
+/** Options may carry their own `tooltip`; otherwise each option shows the group's `tooltip`. */
+export function segmented({ label: text, options, value, onChange, testId, tooltip }) {
+  const group = el('div', { className: 'segmented', attrs: { role: 'group', 'aria-label': text } });
   if (testId) group.dataset.testid = testId;
   options.forEach((option) => {
     const button = el('button', { className: 'segmented__option', text: option.label, attrs: { type: 'button', 'aria-pressed': String(option.value === value) } });
+    withTooltip(button, option.tooltip ?? tooltip);
     button.addEventListener('click', () => {
       if (option.value !== value) onChange(option.value);
     });
     group.append(button);
   });
-  return el('div', { className: 'field' }, [el('span', { className: 'field__label', text: label }), group]);
+  return el('div', { className: 'field' }, [label('span', text, tooltip), group]);
 }
 
-export function selectField({ label, options, value, onChange, testId }) {
+export function selectField({ label: text, options, value, onChange, testId, tooltip }) {
   const id = nextId('select');
   const select = el('select', { className: 'field__input', attrs: { id } }, options.map((option) => {
     const node = el('option', { text: option.label, attrs: { value: option.value } });
@@ -90,13 +99,15 @@ export function selectField({ label, options, value, onChange, testId }) {
     return node;
   }));
   if (testId) select.dataset.testid = testId;
+  withTooltip(select, tooltip);
   select.addEventListener('change', () => onChange(select.value));
-  return el('div', { className: 'field' }, [el('label', { className: 'field__label', text: label, attrs: { for: id } }), select]);
+  return el('div', { className: 'field' }, [label('label', text, tooltip, { for: id }), select]);
 }
 
-export function button(text, onClick, { variant = 'secondary', testId, disabled = false } = {}) {
+export function button(text, onClick, { variant = 'secondary', testId, disabled = false, tooltip } = {}) {
   const node = el('button', { className: `btn btn--${variant}`, text, attrs: { type: 'button' } });
   if (testId) node.dataset.testid = testId;
+  withTooltip(node, tooltip);
   node.disabled = disabled;
   node.addEventListener('click', onClick);
   return node;

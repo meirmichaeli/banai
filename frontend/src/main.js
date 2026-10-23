@@ -13,7 +13,7 @@ import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
 import { renderSnapshot } from './viewer/snapshot.js';
 import { createChatModel } from './chat/chatModel.js';
-import { createLanguage } from './chat/i18n.js';
+import { language, t } from './i18n/app.js';
 import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
@@ -22,11 +22,38 @@ import { createExportDialog } from './export/exportDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
+import { icon } from './ui/icons.js';
+import { installTooltips } from './ui/tooltip.js';
 
-function showError(message) {
+// Errors are kept by key, so a banner that is showing follows a language switch.
+let errorKey = null;
+
+function showError(key) {
+  errorKey = key;
   const banner = document.getElementById('error-banner');
-  banner.textContent = message;
+  banner.textContent = t().errors[key];
   banner.hidden = false;
+}
+
+const lookup = (path) => path.split('.').reduce((node, key) => node?.[key], t());
+
+/**
+ * Static page text (index.html) in the app language: `data-i18n` sets the text, `data-i18n-label`
+ * the accessible name, `data-i18n-tooltip` the tooltip, and `data-i18n-dir` the text direction.
+ */
+function applyStaticText() {
+  const code = language.get();
+  document.documentElement.lang = code;
+  document.title = t().appName;
+  document.querySelectorAll('[data-i18n]').forEach((node) => { node.textContent = lookup(node.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-label]').forEach((node) => node.setAttribute('aria-label', lookup(node.dataset.i18nLabel)));
+  document.querySelectorAll('[data-i18n-tooltip]').forEach((node) => { node.dataset.tooltip = lookup(node.dataset.i18nTooltip); });
+  document.querySelectorAll('[data-i18n-dir]').forEach((node) => {
+    node.setAttribute('dir', t().dir);
+    node.setAttribute('lang', code);
+  });
+  document.getElementById('topbar-logo').replaceChildren(createLogo({ size: 34, tagline: t().tagline }));
+  if (errorKey) showError(errorKey);
 }
 
 // The skip link moves focus without touching the hash: the hash may hold the private design link.
@@ -48,22 +75,22 @@ function bindInteriorToggle(store) {
  * The design to open: the saved one when the page was opened from its private link, else the basic
  * wardrobe. `session` ({ designId, token, revision }) is what the next save writes over.
  */
-async function loadInitial(language) {
+async function loadInitial(code) {
   const link = parseShareHash(window.location.hash);
   if (link) {
     try {
-      const saved = await getSavedDesign({ ...link, language });
+      const saved = await getSavedDesign({ ...link, language: code });
       return { initial: { design: saved.design, revision: 1 }, session: { ...link, revision: saved.revision } };
     } catch {
-      showError('This link did not open a saved design, so the basic wardrobe is shown instead.');
+      showError('badLink');
     }
   }
   return { initial: await getDefaultDesign(), session: null };
 }
 
-function createSaver(store, language, initialSession) {
+function createSaver(store, initialSession) {
   let session = initialSession;
-  return async () => {
+  const save = async () => {
     const { design } = store.getState();
     if (session) {
       const { revision } = await updateSavedDesign({ ...session, design, language: language.get() });
@@ -75,19 +102,48 @@ function createSaver(store, language, initialSession) {
     window.history.replaceState(null, '', shareHash(session));
     return window.location.href;
   };
+  // The private link of the design being edited, once it has one.
+  const link = () => (session ? window.location.href : '');
+  return { save, link };
 }
 
-function bindDialogs({ storage, onSave, link }) {
-  const save = createSaveDialog({ available: storage, onSave, link });
-  const render = createRenderDialog();
+/**
+ * Builds a dialog in the app language and rebuilds it after a language switch. An open dialog is
+ * rebuilt when it closes, so nothing changes under the customer's hands.
+ */
+function localizedDialog(create) {
+  let dialog = null;
+  let stale = false;
+  const build = () => {
+    dialog?.remove();
+    dialog = create();
+    dialog.element.addEventListener('close', () => {
+      if (!stale) return;
+      stale = false;
+      build();
+    });
+  };
+  build();
+  language.subscribe(() => {
+    if (dialog.isOpen()) stale = true;
+    else build();
+  });
+  return { open: () => dialog.open() };
+}
+
+function bindDialogs({ storage, saver }) {
+  const save = localizedDialog(() => createSaveDialog({ available: storage, onSave: saver.save, link: saver.link() }));
+  const render = localizedDialog(createRenderDialog);
   document.getElementById('open-save').addEventListener('click', save.open);
   document.getElementById('open-render').addEventListener('click', render.open);
 }
 
 async function boot() {
-  document.getElementById('topbar-logo').append(createLogo({ size: 34, tagline: 'Wardrobe Designer' }));
   installRipple();
-  const language = createLanguage();
+  installTooltips();
+  document.querySelector('.viewer__help').append(icon('info', { size: 20 }));
+  applyStaticText();
+  language.subscribe(applyStaticText);
   let catalog;
   let initial;
   let session;
@@ -98,7 +154,7 @@ async function boot() {
       getCatalog(), loadInitial(language.get()), getHealth().catch(() => null),
     ]);
   } catch {
-    showError('Could not reach the design service. Please check your connection and reload.');
+    showError('unreachable');
     return;
   }
   // Validates the server data before anything is rendered (throws on invalid data).
@@ -106,17 +162,13 @@ async function boot() {
   const viewer = createViewer(document.getElementById('viewer'), store);
   bindInteriorToggle(store);
   bindSkipLink();
-  const exporter = createExportDialog({
+  const exporter = localizedDialog(() => createExportDialog({
     getDesign: () => store.getState().design,
     getLanguage: () => language.get(),
     getSnapshot: (design) => renderSnapshot(design, store.getState().catalog),
-  });
+  }));
   mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
-  bindDialogs({
-    storage: health?.data.storage === true,
-    onSave: createSaver(store, language, session),
-    link: session ? window.location.href : '',
-  });
+  bindDialogs({ storage: health?.data.storage === true, saver: createSaver(store, session) });
 
   // The agent is optional: without an OpenAI key on the server the panel says so honestly.
   const agent = health?.data.agent === true
@@ -126,13 +178,13 @@ async function boot() {
     }
     : null;
   const chatModel = createChatModel({ getRevision: () => store.getState().revision, agent, getLanguage: language.get });
-  const t = () => language.strings();
+  const chatText = () => language.strings();
 
   let applying = false;
   const confirmProposal = async (proposal) => {
     if (applying) return;
     if (!proposal.signed) {
-      chatModel.resolveProposal(t().notApplied);
+      chatModel.resolveProposal(chatText().notApplied);
       return;
     }
     applying = true;
@@ -140,10 +192,10 @@ async function boot() {
     try {
       const result = await applyProposal({ design, revision, proposal: proposal.signed, language: language.get() });
       store.replaceDesign(result.design, result.revision);
-      chatModel.resolveProposal(t().applied);
+      chatModel.resolveProposal(chatText().applied);
       chatModel.noteDesignReady(); // the final step: Generate Style Profile
     } catch (error) {
-      chatModel.resolveProposal(error?.code === 'STALE' ? t().stale : t().notApplied);
+      chatModel.resolveProposal(error?.code === 'STALE' ? chatText().stale : chatText().notApplied);
     } finally {
       applying = false;
     }
@@ -170,5 +222,5 @@ async function boot() {
 }
 
 boot().catch(() => {
-  showError('The designer could not start. Please reload the page.');
+  showError('startFailed');
 });

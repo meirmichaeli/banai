@@ -11,6 +11,10 @@ import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
 import { toM } from './units.js';
+import { language, t } from '../i18n/app.js';
+import { resolveSelection } from '../state/store.js';
+import { pointerTooltip } from '../ui/tooltip.js';
+import { describeSelection } from './format.js';
 
 const BACKGROUND = '#eceeec';
 
@@ -46,7 +50,8 @@ export function createViewer(container, store) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.domElement.setAttribute('role', 'img');
-  renderer.domElement.setAttribute('aria-label', '3D wardrobe view. Every part is also listed under All parts in the Properties panel.');
+  const labelCanvas = () => renderer.domElement.setAttribute('aria-label', t().canvasLabel);
+  labelCanvas();
   container.appendChild(renderer.domElement);
 
   const labels = new CSS2DRenderer();
@@ -62,7 +67,7 @@ export function createViewer(container, store) {
   const highlighter = createHighlighter(scene);
   const dimensions = createDimensions(scene);
   let group = null;
-  let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
+  let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null, language: null };
 
   const fitCamera = (design) => {
     const { width, height, depth } = design.dimensions;
@@ -89,10 +94,11 @@ export function createViewer(container, store) {
       if (dimsKey !== rendered.dimsKey) fitCamera(design);
       rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey };
     }
-    if (geometryChanged || selection !== rendered.selection) {
+    const code = language.get();
+    if (geometryChanged || selection !== rendered.selection || code !== rendered.language) {
       highlighter.update(group, design, selection);
       dimensions.update(group, design, selection);
-      rendered = { ...rendered, selection };
+      rendered = { ...rendered, selection, language: code };
     }
   };
 
@@ -112,9 +118,21 @@ export function createViewer(container, store) {
     camera,
     getTargets: () => (group ? group.children : []),
     onPick: (hit) => store.select(componentAt(hit, store.getState().design)),
-    onHover: (hit) => { renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : ''; },
+    // The part under the pointer: a pointer cursor and a tooltip naming it, in the app language.
+    onHover: (hit, event) => {
+      const { design } = store.getState();
+      const part = hit?.object.userData.componentId ? resolveSelection(design, componentAt(hit, design)) : null;
+      renderer.domElement.style.cursor = part ? 'pointer' : '';
+      const text = part ? `${describeSelection(design, part)} · ${t().viewer.clickToSelect}` : null;
+      pointerTooltip(text, event.clientX, event.clientY, { dir: t().dir, lang: language.get() });
+    },
   });
   const unsubscribe = store.subscribe(sync);
+  // A language switch rewrites the dimension labels and the canvas description.
+  const unsubscribeLanguage = language.subscribe(() => {
+    labelCanvas();
+    sync(store.getState());
+  });
   sync(store.getState());
 
   renderer.setAnimationLoop(() => {
@@ -139,6 +157,7 @@ export function createViewer(container, store) {
     dispose() {
       renderer.setAnimationLoop(null);
       unsubscribe();
+      unsubscribeLanguage();
       detachPicking();
       resizeObserver.disconnect();
       if (group) disposeWardrobe(group);
