@@ -3,24 +3,26 @@
 import { el, button } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { createDialog } from '../ui/dialog.js';
-
-export const RENDER_DISCLAIMER = 'Illustrative image, not the accurate 3D model';
+import { t } from '../i18n/app.js';
 
 export function createRenderDialog() {
-  const placeholder = el('div', { className: 'render__placeholder' }, [icon('image', { size: 48 }), el('span', { text: 'Your render will appear here' })]);
+  const s = t().dialogs.render;
+  const placeholder = el('div', { className: 'render__placeholder' }, [icon('image', { size: 48 }), el('span', { text: s.placeholder })]);
+  // A disabled button gets no hover or focus, so its tooltip sits on a wrapper.
+  const generate = button(s.generate, () => {}, { variant: 'primary', testId: 'render-generate', disabled: true });
   const dialog = createDialog({
-    title: 'Photorealistic render',
+    title: s.title,
     labelId: 'render-dialog-title',
     testId: 'render-dialog',
     body: [
-      el('p', { className: 'dialog__text', text: 'Create an illustrative image of your wardrobe on a clean background. Your design and its dimensions are not changed.' }),
+      el('p', { className: 'dialog__text', text: s.text }),
       placeholder,
-      el('span', { className: 'chip', text: RENDER_DISCLAIMER }),
-      el('p', { className: 'dialog__status', text: 'Rendering is not available yet. It arrives with the AI rendering phase.', attrs: { role: 'status' } }),
+      el('span', { className: 'chip', text: s.disclaimer }),
+      el('p', { className: 'dialog__status', text: s.unavailable, attrs: { role: 'status' } }),
     ],
     actions: [
-      button('Generate render', () => {}, { variant: 'primary', testId: 'render-generate', disabled: true }),
-      button('Close', () => dialog.close(), { variant: 'ghost', testId: 'render-close' }),
+      el('span', { className: 'tooltip-host', attrs: { 'data-tooltip': s.tips.generate } }, [generate]),
+      button(t().dialogs.close, () => dialog.close(), { variant: 'ghost', testId: 'render-close', tooltip: s.tips.close }),
     ],
   });
   return dialog;

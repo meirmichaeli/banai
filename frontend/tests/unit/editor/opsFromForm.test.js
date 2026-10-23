@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { applyOps } from '../../../src/domain/apply.js';
+import { language } from '../../../src/i18n/app.js';
 import {
   addCompartmentOps, addItemOps, doorHingeOps, doorTypeOps, friendlyError, materialOps, parseCm, toCmText,
 } from '../../../src/editor/opsFromForm.js';
@@ -68,10 +69,22 @@ describe('structure ops produce valid designs', () => {
 });
 
 describe('friendlyError', () => {
+  afterEach(() => language.set('he'));
+
   it('turns domain errors into short user messages', () => {
+    language.set('en');
     expect(friendlyError(new DomainError('OVERLAP', 'compartments[0].shelves[4]', 'x'))).toMatch(/overlap/i);
     expect(friendlyError(new DomainError('OUT_OF_BOUNDS', 'x', 'x'))).toMatch(/inside the wardrobe/i);
     expect(friendlyError(new DomainError('OUT_OF_RANGE', 'ops[0].width', 'x'))).toMatch(/allowed range/i);
     expect(friendlyError(new DomainError('SOMETHING_NEW', 'x', 'x'))).toMatch(/could not be applied/i);
+  });
+
+  it('follows the app language', () => {
+    language.set('he');
+    expect(friendlyError(new DomainError('OVERLAP', 'x', 'x'))).toBe('זה יחפוף מדף או מגירה אחרים. בחר מיקום אחר.');
+    expect(friendlyError(new DomainError('SOMETHING_NEW', 'x', 'x'))).toBe('לא ניתן היה להחיל את השינוי.');
+    expect(parseCm('abc').message).toBe('הזן מספר בס״מ, למשל 64.5');
+    language.set('en');
+    expect(parseCm('abc').message).toBe('Enter a number in cm, e.g. 64.5');
   });
 });

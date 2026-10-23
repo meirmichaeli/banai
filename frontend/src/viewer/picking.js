@@ -32,17 +32,28 @@ export function attachPicking({ dom, camera, getTargets, onPick, onHover = () =>
   // Hover feedback (cursor). Throttled to one raycast per frame; ignored while dragging.
   let hoverFrame = 0;
   const onPointerMove = (event) => {
-    if (event.buttons || hoverFrame) return;
+    if (event.buttons) {
+      onHover(null, event); // dragging (orbit): no hover feedback
+      return;
+    }
+    if (hoverFrame) return;
     hoverFrame = requestAnimationFrame(() => {
       hoverFrame = 0;
-      onHover(hitAt(event));
+      onHover(hitAt(event), event);
     });
   };
 
   dom.addEventListener('pointerdown', onPointerDown);
   dom.addEventListener('pointerup', onPointerUp);
   dom.addEventListener('pointermove', onPointerMove);
+  const onPointerLeave = (event) => {
+    cancelAnimationFrame(hoverFrame);
+    hoverFrame = 0;
+    onHover(null, event);
+  };
+  dom.addEventListener('pointerleave', onPointerLeave);
   return () => {
+    dom.removeEventListener('pointerleave', onPointerLeave);
     cancelAnimationFrame(hoverFrame);
     dom.removeEventListener('pointerdown', onPointerDown);
     dom.removeEventListener('pointerup', onPointerUp);

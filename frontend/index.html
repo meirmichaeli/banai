@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="he">
   <head>
     <meta charset="UTF-8" />
     <meta name="referrer" content="no-referrer" /><!-- the share link carries a token -->
@@ -8,27 +8,29 @@
     <link rel="stylesheet" href="/src/styles/index.css" />
   </head>
   <body>
-    <a class="skip-link" href="#properties-panel">Skip to properties</a>
-    <header class="topbar">
-      <h1 class="topbar__title" id="topbar-logo" aria-label="BanAI Wardrobe Designer"></h1>
+    <a class="skip-link" href="#properties-panel" data-i18n="skipToProperties">דלג למאפיינים</a>
+    <header class="topbar" data-i18n-dir>
+      <h1 class="topbar__title" id="topbar-logo" data-i18n-label="appName" data-i18n-tooltip="tips.logo"></h1>
       <div class="topbar__actions">
-        <label class="toggle">
+        <label class="toggle" data-i18n-tooltip="tips.showInterior">
           <input type="checkbox" id="toggle-interior" />
-          <span>Show interior</span>
+          <span data-i18n="showInterior">הצג פנים</span>
         </label>
-        <span class="topbar__units">cm</span>
-        <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render">Render</button>
-        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save">Save</button>
-        <a class="btn btn--ghost" href="/accessibility.html" lang="he" data-testid="a11y-link">נגישות</a>
+        <span class="topbar__units" data-i18n="cm" data-i18n-tooltip="tips.units" tabindex="0">ס״מ</span>
+        <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render" data-i18n="render" data-i18n-tooltip="tips.render">הדמיה</button>
+        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save" data-i18n="save" data-i18n-tooltip="tips.save">שמירה</button>
+        <a class="btn btn--ghost" href="/accessibility.html" lang="he" data-testid="a11y-link" data-i18n-tooltip="tips.accessibility">נגישות</a>
       </div>
     </header>
     <div class="banner banner--error" id="error-banner" role="alert" hidden></div>
     <main class="workspace">
       <aside class="panel" id="chat-panel" lang="he" aria-label="מעצב AI"></aside>
-      <section class="viewer" id="viewer" aria-label="3D viewer"></section>
-      <aside class="panel panel--properties" id="properties-panel" aria-label="Properties" tabindex="-1">
-        <h2 class="panel__title">Properties</h2>
-        <p class="panel__hint">Select a component in the 3D view, or under All parts below, to edit it.</p>
+      <section class="viewer" id="viewer" data-i18n-label="viewerLabel">
+        <span class="viewer__help" tabindex="0" role="img" data-testid="viewer-help" data-i18n-label="viewerHelp" data-i18n-tooltip="tips.viewer" data-i18n-dir></span>
+      </section>
+      <aside class="panel panel--properties" id="properties-panel" data-i18n-label="properties.title" data-i18n-dir tabindex="-1">
+        <h2 class="panel__title" data-i18n="properties.title" data-i18n-tooltip="tips.properties">מאפיינים</h2>
+        <p class="panel__hint" data-i18n="properties.hint"></p>
         <div id="properties-content"></div>
       </aside>
     </main>
