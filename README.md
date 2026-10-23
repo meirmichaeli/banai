@@ -105,6 +105,8 @@ npm run dev
 | `OPENAI_API_KEY` | Enables the AI Designer. Without it, the chat says the agent isn't connected. |
 | `OPENAI_CHAT_MODEL` | Model to use, for example `gpt-4.1`. It has a configurable default. |
 | `OPENAI_TRANSCRIBE_MODEL` / `OPENAI_TTS_MODEL` / `OPENAI_TTS_VOICE` | Voice models and voice. Optional; the defaults are `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts` and `marin`. |
+| `VOICE_MODE` | `live` (default): a real-time GPT-Live conversation whose design work is delegated to the chat agent. `chained`: record, transcribe, chat, read aloud. |
+| `OPENAI_LIVE_MODEL` / `OPENAI_LIVE_VOICE` | GPT-Live model and voice. Optional; the defaults are `gpt-live-1` and `marin`. |
 | `PROPOSAL_SIGNING_KEY` | HMAC key for proposals. Required outside `APP_ENV=local`. |
 | `CORS_ORIGINS` | Allowed frontend origins, comma-separated. |
 | `APP_ENV` | Set to `local`, `dev` or `production`. API docs are disabled in production. |

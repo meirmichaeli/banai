@@ -202,6 +202,7 @@ async function boot() {
   };
   const chat = mountChat(document.getElementById('chat-panel'), {
     model: chatModel, onConfirm: confirmProposal, language, onExport: exporter.open,
+    voiceMode: health?.data.voice === 'live' ? 'live' : 'chained',
   });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());

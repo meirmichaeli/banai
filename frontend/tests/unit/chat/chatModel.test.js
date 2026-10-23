@@ -107,7 +107,8 @@ describe('chat model with a connected agent', () => {
     const agent = vi.fn(() => pending.promise);
     const model = createChatModel({ getRevision: () => 3, agent });
     expect(model.isConnected()).toBe(true);
-    expect(model.send('add a shelf')).toEqual({ ok: true });
+    const sent = model.send('add a shelf');
+    expect(sent).toMatchObject({ ok: true });
     expect(model.isBusy()).toBe(true);
     expect(model.send('another')).toEqual({ ok: false, reason: 'busy' });
     expect(agent).toHaveBeenCalledWith({ messages: [{ role: 'user', text: 'add a shelf' }], language: 'he' });
@@ -116,6 +117,15 @@ describe('chat model with a connected agent', () => {
     expect(model.getMessages().map((m) => [m.role, m.text])).toEqual([['user', 'add a shelf'], ['assistant', 'Here you go']]);
     expect(model.getProposal()).toEqual({ id: signed.proposalId, baseRevision: 3, summary: 'Adds a shelf', changes: signed.changes, language: 'he', signed });
     expect(model.getProposalStatus()).toBe('pending');
+    // Callers that must wait for the answer (the live voice) get it from the same send.
+    await expect(sent.reply).resolves.toEqual({ reply: 'Here you go', proposed: true });
+  });
+
+  it('resolves the reply promise with the error note when the agent fails', async () => {
+    const model = createChatModel({ getRevision: () => 3, agent: async () => { throw new Error('down'); } });
+    const { reply } = await model.send('add a shelf').reply;
+    expect(reply).toBe(model.getMessages().at(-1).text);
+    expect(model.getMessages().at(-1).role).toBe('system');
   });
 
   it('keeps system notes out of the history sent to the agent', async () => {

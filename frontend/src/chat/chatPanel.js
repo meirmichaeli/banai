@@ -8,6 +8,7 @@ import { MAX_MESSAGE_LENGTH } from './chatModel.js';
 import { createLanguage, detectLanguage, STRINGS, stringsFor } from './i18n.js';
 import { renderProposalCard } from './proposalCard.js';
 import { canRecord, createSpeaker, readAloudPreference, startRecording } from './voice.js';
+import { canTalkLive, createLiveVoice } from './liveVoice.js';
 import { transcribe } from '../api/client.js';
 import { languageSwitch } from '../ui/languageSwitch.js';
 import { withTooltip } from '../ui/tooltip.js';
@@ -15,7 +16,7 @@ import { withTooltip } from '../ui/tooltip.js';
 /** onExport() opens the carpenter PDF dialog (Generate Style Profile); without it no note is shown. */
 export function mountChat(container, {
   model, onConfirm, language = createLanguage(), speaker = createSpeaker(), readAloud = readAloudPreference(),
-  onExport = null,
+  onExport = null, voiceMode = 'chained', liveFactory = createLiveVoice,
 }) {
   container.classList.add('panel--chat');
   let draft = '';
@@ -24,8 +25,31 @@ export function mountChat(container, {
   // Voice state outlives a rebuild (language switch). status: null | 'recording' | 'transcribing'.
   const voice = { recording: null, status: null, notice: null };
   let spokenCount = model.getMessages().length; // replies already present are never read aloud
+  // Live mode (ADR-008): the mic button starts a real-time conversation instead of a recording.
+  const liveMode = voiceMode === 'live';
+  const liveText = { state: 'idle', heard: '' };
+  let live = null;
+
+  const showLiveState = () => {
+    const { t, hint, mic } = view;
+    const { state, heard } = liveText;
+    const states = { connecting: t.liveConnecting, live: heard ? t.liveHeard(heard) : t.liveActive, closing: t.liveClosing };
+    hint.textContent = voice.notice ?? states[state] ?? t.hint;
+    if (!mic) return;
+    const on = state !== 'idle' && state !== 'error';
+    mic.classList.toggle('chat__mic--recording', on);
+    mic.setAttribute('aria-pressed', String(on));
+    mic.setAttribute('aria-label', on ? t.liveStop : t.liveStart);
+    mic.dataset.tooltip = on ? t.tips.liveStop : t.tips.liveStart;
+    mic.replaceChildren(icon(on ? 'stop' : 'mic'));
+    mic.disabled = state === 'closing';
+  };
 
   const showVoiceState = () => {
+    if (liveMode) {
+      showLiveState();
+      return;
+    }
     const { t, hint, mic } = view;
     hint.textContent = voice.notice ?? (voice.status ? t[voice.status] : t.hint);
     if (!mic) return;
@@ -37,6 +61,53 @@ export function mountChat(container, {
     mic.replaceChildren(icon(recording ? 'stop' : 'mic'));
     mic.disabled = voice.status === 'transcribing' || (!recording && model.isBusy());
   };
+
+  const idle = () => new Promise((resolve) => {
+    if (!model.isBusy()) {
+      resolve();
+      return;
+    }
+    const off = model.subscribe(() => {
+      if (model.isBusy()) return;
+      off();
+      resolve();
+    });
+  });
+
+  /** A live delegation: the customer's spoken request as a normal chat turn; resolves to what to say. */
+  async function delegate(text) {
+    const t = () => language.strings();
+    if (!text) return t().liveRepeat;
+    // Speaking Hebrew or English switches the chat (and the app) to it, as typing does.
+    const written = detectLanguage(text);
+    if (written && written !== language.get()) language.set(written);
+    await idle();
+    const sent = model.send(text);
+    if (!sent.ok) return t().liveRepeat;
+    if (!sent.reply) return t().notConnected;
+    const { reply, proposed } = await sent.reply;
+    return proposed ? `${reply} ${t().liveConfirmHint}` : reply;
+  }
+
+  function toggleLive() {
+    voice.notice = null;
+    live ??= liveFactory({
+      getLanguage: language.get,
+      onDelegation: delegate,
+      onHeard: (heard) => {
+        liveText.heard = heard;
+        if (view) showVoiceState();
+      },
+      onState: (state, error) => {
+        liveText.state = state;
+        if (state === 'live') speaker.stop(); // the live voice replaces read-aloud
+        if (state === 'error') voice.notice = error?.name === 'NotAllowedError' ? view.t.micDenied : view.t.liveError;
+        if (view) showVoiceState();
+      },
+    });
+    if (live.isActive()) live.stop();
+    else live.start();
+  }
 
   async function toggleMic() {
     if (voice.recording) {
@@ -131,11 +202,11 @@ export function mountChat(container, {
     const sendButton = el('button', { className: 'icon-btn icon-btn--filled chat__send', attrs: { type: 'submit', 'aria-label': t.send } }, [icon('send')]);
     sendButton.dataset.testid = 'chat-send';
     withTooltip(sendButton, t.tips.send);
-    const voiceReady = model.isConnected() && canRecord();
+    const voiceReady = model.isConnected() && (liveMode ? canTalkLive() : canRecord());
     const mic = voiceReady ? el('button', { className: 'icon-btn chat__mic', attrs: { type: 'button' } }) : null;
     if (mic) {
       mic.dataset.testid = 'chat-mic';
-      mic.addEventListener('click', toggleMic);
+      mic.addEventListener('click', liveMode ? toggleLive : toggleMic);
     }
     const composer = el('form', { className: 'chat__composer' }, mic ? [input, mic, sendButton] : [input, sendButton]);
     const hint = el('p', { className: 'chat__hint', text: t.hint, attrs: { 'aria-live': 'polite' } });
@@ -208,7 +279,7 @@ export function mountChat(container, {
   function speakNewReplies(messages) {
     const reply = messages.slice(spokenCount).filter((message) => message.role === 'assistant').at(-1);
     spokenCount = messages.length;
-    if (!reply || !readAloud.get()) return;
+    if (!reply || !readAloud.get() || live?.isActive()) return; // in a live conversation the live voice speaks
     speaker.speak(reply.text, reply.language, reply.signature).catch(() => {
       voice.notice = view.t.voiceError;
       showVoiceState();

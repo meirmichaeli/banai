@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     openai_transcribe_model: str = ""
     openai_tts_model: str = ""
     openai_tts_voice: str = ""
+    # Voice mode: "live" = a GPT-Live conversation whose design work is delegated to the normal chat
+    # agent (ADR-008); "chained" = record, transcribe, chat, read aloud (ADR-007).
+    # ASSUMPTION: configurable defaults (empty model/voice = the defaults in app/api/live.py).
+    voice_mode: str = "live"
+    openai_live_model: str = ""
+    openai_live_voice: str = ""
     # Saved designs (Phase 7). Only the backend holds the secret key; the browser never talks to Supabase.
     supabase_url: str = ""
     supabase_secret_key: str = ""
@@ -40,6 +46,10 @@ class Settings(BaseSettings):
     @property
     def agent_enabled(self) -> bool:
         return bool(self.openai_api_key.strip())
+
+    @property
+    def live_voice(self) -> bool:
+        return self.agent_enabled and self.voice_mode.strip().lower() == "live"
 
 
 @lru_cache

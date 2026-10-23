@@ -67,6 +67,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     "UNSUPPORTED_AUDIO": {"he": "פורמט השמע לא נתמך.", "en": "This audio format is not supported."},
     "AUDIO_TOO_LARGE": {"he": "ההקלטה ארוכה מדי.", "en": "The recording is too long."},
     "BAD_REPLY_SIGNATURE": {"he": "אפשר להקריא רק תשובות של המעצב.", "en": "Only the designer's own replies can be read aloud."},
+    "LIVE_DISABLED": {"he": "שיחה קולית חיה לא מופעלת בשרת הזה.", "en": "Live voice conversation is not enabled on this server."},
     "STALE": {"he": "העיצוב השתנה אחרי שההצעה נוצרה. בקש מהמעצב הצעה חדשה.", "en": "The design changed after this proposal was made. Ask the designer to re-propose."},
 }
 

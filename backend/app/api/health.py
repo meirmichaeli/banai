@@ -10,4 +10,5 @@ router = APIRouter()
 def health() -> dict:
     settings = get_settings()
     return {"success": True, "data": {"status": "ok", "env": settings.app_env, "agent": settings.agent_enabled,
-                                      "storage": get_repository() is not None}}
+                                      "storage": get_repository() is not None,
+                                      "voice": "live" if settings.live_voice else "chained"}}

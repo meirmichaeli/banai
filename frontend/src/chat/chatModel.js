@@ -72,6 +72,7 @@ export function createChatModel({ getRevision, agent = null, getLanguage = () =>
     .slice(-MAX_HISTORY)
     .map(({ role, text }) => ({ role, text }));
 
+  /** Resolves to the designer's reply text (or the error note shown instead). */
   async function ask() {
     // The reply is written in the language chosen when the message was sent, even if the
     // customer switches language while the designer is still thinking.
@@ -83,8 +84,11 @@ export function createChatModel({ getRevision, agent = null, getLanguage = () =>
       push('assistant', reply, language, replySignature);
       if (signed) proposal = fromServerProposal(signed, language);
       if (offerProfile === true) built = Object.freeze({ kind: 'design', language });
+      return { reply, proposed: Boolean(signed) };
     } catch (error) {
-      push('system', error?.message && error.status ? error.message : stringsFor(language).agentError, language);
+      const note = error?.message && error.status ? error.message : stringsFor(language).agentError;
+      push('system', note, language);
+      return { reply: note, proposed: false, failed: true };
     } finally {
       busy = false;
       notify();
@@ -105,7 +109,8 @@ export function createChatModel({ getRevision, agent = null, getLanguage = () =>
 
     /**
      * A customer message. Returns { ok } synchronously; with an agent, the reply (and maybe a
-     * proposal) arrives later through subscribers. Never touches the design.
+     * proposal) arrives later through subscribers, and `reply` resolves to { reply, proposed }
+     * for callers that must wait for it (the live voice). Never touches the design.
      */
     send(rawText) {
       const text = String(rawText ?? '').trim();
@@ -120,8 +125,7 @@ export function createChatModel({ getRevision, agent = null, getLanguage = () =>
       }
       // A new request supersedes an unconfirmed proposal.
       proposal = null;
-      ask();
-      return { ok: true };
+      return { ok: true, reply: ask() };
     },
 
     /** Set by the agent integration (Phase 5) or the dev-only demo. */

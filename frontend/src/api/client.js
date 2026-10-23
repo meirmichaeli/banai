@@ -52,6 +52,9 @@ export const getDefaultDesign = (fetchImpl = fetch) => getJson('/api/designs/def
 /** One agent turn: { messages: [{role, text}], design, revision } -> { reply, proposal|null }. */
 export const sendChat = (payload, fetchImpl = fetch) => postJson('/api/chat', payload, fetchImpl);
 
+/** Opens a live voice session (GPT-Live): { sdp: browser WebRTC offer, language } -> { sessionId, sdp: answer }. */
+export const createLiveSession = (payload, fetchImpl = fetch) => postJson('/api/live/session', payload, fetchImpl);
+
 /** Speech to text: a recorded audio Blob -> { text }. `language` only localizes server errors. */
 export const transcribe = (blob, language, fetchImpl = fetch) => request(
   `/api/voice/transcribe?language=${encodeURIComponent(language)}`,
