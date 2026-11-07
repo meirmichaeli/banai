@@ -40,7 +40,7 @@ test.describe('accessibility (axe, WCAG 2.1 AA)', () => {
   test('accessibility statement page', async ({ page }) => {
     await page.goto('/accessibility.html');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('הצהרת נגישות');
-    await expect(page.getByRole('link', { name: 's.jzouari@gmail.com' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'meir.michaeli@gmail.com' })).toBeVisible();
     await expectNoViolations(page);
   });
 });
